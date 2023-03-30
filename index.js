@@ -1,6 +1,9 @@
+require('dotenv').config()
 const express = require('express')
 const morgan = require('morgan')
 const cors = require('cors')
+
+const Person = require('./models/person')
 
 const app = express()
 
@@ -45,7 +48,9 @@ app.use(morgan(':method :url :status :res[content-length] - :response-time ms :p
 app.use(express.static('build'))
 
 app.get('/api/persons', (request, response) => {
-  response.json(persons)
+  Person.find({}).then(persons => {
+    response.json(persons)
+  })
 })
 
 app.get('/info', (request, response) => {
@@ -54,12 +59,9 @@ app.get('/info', (request, response) => {
 })
 
 app.get('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id)
-  const person = persons.find(p => p.id === id)
-  if (!person) {
-    return response.status(404).end()
-  }
-  response.json(person)
+  Person.findById(request.params.id).then(person => {
+    response.json(person)
+  })
 })
 
 app.delete('/api/persons/:id', (request, response) => {
@@ -72,32 +74,26 @@ app.delete('/api/persons/:id', (request, response) => {
   response.status(204).end()
 })
 
-const generateId = () => {
-  return Math.floor(Math.random() * 1000_000) + 1
-}
 
 app.post('/api/persons', (request, response) => {
   const body = request.body
 
-  if (!body.name) {
+  if (body.name === undefined) {
     return response.status(400).json({ error: 'name is missing' })
   }
-  if (!body.number) {
+
+  if (body.number === undefined) {
     return response.status(400).json({ error: 'number is missing' })
   }
-  if (persons.find(p => p.name === body.name)) {
-    return response.status(400).json({ error: 'name must be unique' })
-  }
 
-  const person = {
-    id: generateId(),
+  const person = new Person({
     name: body.name,
     number: body.number
-  }
+  })
 
-  persons = persons.concat(person)
-
-  response.json(person)
+  person.save().then(savedPerson => {
+    response.json(savedPerson)
+  })
 })
 
 const PORT = process.env.PORT || 3001
